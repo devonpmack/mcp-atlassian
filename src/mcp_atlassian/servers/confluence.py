@@ -1102,8 +1102,8 @@ async def update_page_section(
 
     Replaces only the content beneath a named heading, leaving all other
     sections, macros, layouts, and Confluence-specific elements completely
-    intact. A following excerpt/layout/expand that contains a heading of the
-    same or higher level ends the section — that wrapper is not replaced.
+    intact. A following excerpt, expand, or layout that contains a heading of
+    the same or higher level ends the section — that wrapper is not replaced.
     This avoids the data loss that occurs when a full page is downloaded as
     Markdown, edited, and re-uploaded.
 
