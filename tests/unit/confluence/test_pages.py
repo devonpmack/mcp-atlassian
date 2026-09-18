@@ -3886,3 +3886,72 @@ class TestUpdatePageSection:
             )
 
         pages_mixin.preprocessor.markdown_to_confluence_storage.assert_not_called()
+
+    def test_excerpt_with_same_level_heading_is_not_wiped(self, pages_mixin):
+        """A following excerpt that starts with a same-level heading is a boundary."""
+        storage = (
+            "<h1>Non-urgent channel</h1>"
+            "<ul><li>#old-dest</li></ul>"
+            '<ac:structured-macro ac:name="excerpt">'
+            "<ac:rich-text-body>"
+            "<h1>Items in scope</h1>"
+            "<ul><li>Profiles</li></ul>"
+            "</ac:rich-text-body>"
+            "</ac:structured-macro>"
+            "<h1>Items out of scope</h1>"
+            "<ul><li>Forecasting</li></ul>"
+        )
+        raw_page = self._make_page("1", "P", storage)
+        updated_page = self._make_page("1", "P", "")
+        pages_mixin.preprocessor.markdown_to_confluence_storage.return_value = (
+            "<ul><li>#new-dest</li></ul>"
+        )
+
+        with (
+            patch.object(pages_mixin, "get_page_content", return_value=raw_page),
+            patch.object(
+                pages_mixin, "update_page", return_value=updated_page
+            ) as mock_update,
+        ):
+            pages_mixin.update_page_section("1", "Non-urgent channel", "new dest")
+
+        body: str = mock_update.call_args.kwargs["body"]
+        assert "#old-dest" not in body
+        assert "#new-dest" in body
+        assert 'ac:name="excerpt"' in body
+        assert "<h1>Items in scope</h1>" in body
+        assert "<li>Profiles</li>" in body
+        assert "<h1>Items out of scope</h1>" in body
+        assert "<li>Forecasting</li>" in body
+
+    def test_heading_inside_excerpt_can_still_be_the_target(self, pages_mixin):
+        """Updating a heading that lives inside an excerpt only replaces that section."""
+        storage = (
+            "<h1>Non-urgent channel</h1><ul><li>#keep</li></ul>"
+            '<ac:structured-macro ac:name="excerpt">'
+            "<ac:rich-text-body>"
+            "<h1>Items in scope</h1><ul><li>old scope</li></ul>"
+            "</ac:rich-text-body>"
+            "</ac:structured-macro>"
+            "<h1>Items out of scope</h1><ul><li>Forecasting</li></ul>"
+        )
+        raw_page = self._make_page("1", "P", storage)
+        updated_page = self._make_page("1", "P", "")
+        pages_mixin.preprocessor.markdown_to_confluence_storage.return_value = (
+            "<ul><li>new scope</li></ul>"
+        )
+
+        with (
+            patch.object(pages_mixin, "get_page_content", return_value=raw_page),
+            patch.object(
+                pages_mixin, "update_page", return_value=updated_page
+            ) as mock_update,
+        ):
+            pages_mixin.update_page_section("1", "Items in scope", "new scope")
+
+        body: str = mock_update.call_args.kwargs["body"]
+        assert "old scope" not in body
+        assert "new scope" in body
+        assert "#keep" in body
+        assert "<h1>Items out of scope</h1>" in body
+        assert "<li>Forecasting</li>" in body
