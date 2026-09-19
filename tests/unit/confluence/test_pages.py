@@ -3887,17 +3887,40 @@ class TestUpdatePageSection:
 
         pages_mixin.preprocessor.markdown_to_confluence_storage.assert_not_called()
 
-    def test_excerpt_with_same_level_heading_is_not_wiped(self, pages_mixin):
-        """A following excerpt that starts with a same-level heading is a boundary."""
+    @pytest.mark.parametrize(
+        ("wrapper", "marker"),
+        [
+            (
+                '<ac:structured-macro ac:name="excerpt">'
+                "<ac:rich-text-body>{content}</ac:rich-text-body>"
+                "</ac:structured-macro>",
+                'ac:name="excerpt"',
+            ),
+            (
+                '<ac:structured-macro ac:name="expand">'
+                "<ac:rich-text-body>{content}</ac:rich-text-body>"
+                "</ac:structured-macro>",
+                'ac:name="expand"',
+            ),
+            (
+                '<ac:layout><ac:layout-section ac:type="single">'
+                "<ac:layout-cell>{content}</ac:layout-cell>"
+                "</ac:layout-section></ac:layout>",
+                "ac:layout-cell",
+            ),
+        ],
+    )
+    def test_structural_wrapper_with_same_level_heading_is_not_wiped(
+        self, pages_mixin, wrapper, marker
+    ):
+        """A following structural wrapper with a peer heading is a boundary."""
+        wrapped_section = wrapper.format(
+            content="<h1>Notes</h1><ul><li>keep these notes</li></ul>"
+        )
         storage = (
             "<h1>Agenda</h1>"
             "<ul><li>old agenda</li></ul>"
-            '<ac:structured-macro ac:name="excerpt">'
-            "<ac:rich-text-body>"
-            "<h1>Notes</h1>"
-            "<ul><li>keep these notes</li></ul>"
-            "</ac:rich-text-body>"
-            "</ac:structured-macro>"
+            f"{wrapped_section}"
             "<h1>Next steps</h1>"
             "<ul><li>follow up Friday</li></ul>"
         )
@@ -3918,7 +3941,7 @@ class TestUpdatePageSection:
         body: str = mock_update.call_args.kwargs["body"]
         assert "old agenda" not in body
         assert "new agenda" in body
-        assert 'ac:name="excerpt"' in body
+        assert marker in body
         assert "<h1>Notes</h1>" in body
         assert "<li>keep these notes</li>" in body
         assert "<h1>Next steps</h1>" in body
